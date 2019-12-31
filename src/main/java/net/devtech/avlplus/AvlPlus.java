@@ -6,19 +6,24 @@ import net.devtech.avlplus.tasks.MainTask;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.craftbukkit.libs.it.unimi.dsi.fastutil.HashCommon;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import javax.naming.Name;
 import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -29,19 +34,19 @@ public class AvlPlus extends JavaPlugin {
 	// I could replace this with a LongSet but for some reason craftbukkit wont import
 	// it's micro optimizations anyways :P
 	public static final Set<Point> VANILLA_CHUNKS = new HashSet<>();
-
+	public static long maxChunks;
 	@Override
 	public void onEnable() {
 		try {
 			if (new CompatibilityCheckTask(this).passedCheck()) {
 				this.config = new AvlConfiguration(this, AvlConfiguration.CONFIG_CURRENT_VERSION, "config.yml");
 				this.config.loadFromFile();
+				maxChunks = this.config.getLong("vanilla-chunks-per-player", 1);
 
 				this.startTasks();
-
 				new Metrics(this);
 
-				Objects.requireNonNull(this.getCommand("aavlp")).setExecutor(new AAVLPCommand());
+				Objects.requireNonNull(this.getCommand("aavlp")).setExecutor(new AAVLPCommand(this));
 				Objects.requireNonNull(this.getCommand("vlp")).setExecutor(AvlPlus::vlp);
 				logger().info("Successfully enabled.");
 
@@ -70,13 +75,13 @@ public class AvlPlus extends JavaPlugin {
 		File file = new File(this.getDataFolder(), "vanilla_chunks.yml");
 		if (!file.exists()) this.saveAAVLP();
 		YamlConfiguration configuration = YamlConfiguration.loadConfiguration(file);
-		configuration.getLongList("chunks").stream().mapToLong(Long::longValue).mapToObj(l -> new Point((int) (l >> 32), (int) l)).forEach(VANILLA_CHUNKS::add);
+		configuration.getLongList("chunks").stream().mapToLong(Long::longValue).mapToObj(AvlPlus::to).forEach(VANILLA_CHUNKS::add);
 	}
 
 	public void saveAAVLP() throws IOException {
 		File file = new File(this.getDataFolder(),"vanilla_chunks.yml");
 		YamlConfiguration configuration = new YamlConfiguration();
-		configuration.set("chunks", VANILLA_CHUNKS.stream().mapToLong(p -> (long) p.x << 32 | p.y & 0xFFFFFFFFL).boxed().collect(Collectors.toList()));
+		configuration.set("chunks", VANILLA_CHUNKS.stream().mapToLong(AvlPlus::from).boxed().collect(Collectors.toList()));
 		configuration.save(file);
 	}
 
@@ -86,6 +91,7 @@ public class AvlPlus extends JavaPlugin {
 		}
 
 		long ticksPerAllowSearch = this.config.getLong("ticks-per-allow-search", 600L /* Default value, if config does not contain the entry */);
+
 		this.task = Bukkit.getScheduler().runTaskTimer(this, new MainTask(this), 0L, ticksPerAllowSearch <= 0 ? 600 : ticksPerAllowSearch);
 	}
 
@@ -106,5 +112,13 @@ public class AvlPlus extends JavaPlugin {
 		}
 		sender.sendMessage("must be a player to execute this command!");
 		return false;
+	}
+
+	public static long from(Point p) {
+		return (long) p.x << 32 | p.y & 0xFFFFFFFFL;
+	}
+
+	public static Point to(long l) {
+		return new Point((int) (l >> 32), (int) l);
 	}
 }
