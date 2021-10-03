@@ -9,7 +9,7 @@ public class CompatibilityCheckTask implements Runnable {
 	private final static String VERSION = NAME.substring(NAME.lastIndexOf('.') + 1);
 
 	private AvlPlus avl;
-	private String[] supportedVersions = new String[]{"v1_14_R1", "v1_15_R1"};
+	private String[] supportedVersions = new String[]{"v1_14_R1", "v1_15_R1", "v1_17_R1"};
 
 	private boolean pass;
 
