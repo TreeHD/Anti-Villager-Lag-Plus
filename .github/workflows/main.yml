@@ -1,0 +1,25 @@
+name: Java CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 16
+      uses: actions/setup-java@v2
+      with:
+        java-version: '16'
+        distribution: 'adopt'
+    - name: Build with Maven
+      run: mvn -B clean package --file pom.xml
+    - name: Prepare Upload artifacts
+      run: mkdir staging && cp target/*.jar staging
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Package
+        path: staging
